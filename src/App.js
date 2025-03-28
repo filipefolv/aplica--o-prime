@@ -1,42 +1,27 @@
-import React, { useState } from 'react';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
-
 function App() {
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
   const [data, setData] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
 
-  const fetchData = async () => {
-    const start = startDate.toISOString().split('T')[0] + 'T00:00:00.000';
-    const end = endDate.toISOString().split('T')[0] + 'T23:59:59.999';
-    try {
-      const response = await fetch(`/api/tipo34?start_date=${start}&end_date=${end}`);
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch('/api/get-data');
       const json = await response.json();
       setData(json);
-    } catch (error) {
-      console.error('Erro ao buscar dados:', error);
-    }
-  };
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 60000); // Atualiza a cada 60 segundos
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="App">
       <h1>Logs OceanTrack</h1>
-      <div>
-        <label>Data Inicial: </label>
-        <DatePicker selected={startDate} onChange={date => setStartDate(date)} />
-        <label>Data Final: </label>
-        <DatePicker selected={endDate} onChange={date => setEndDate(date)} />
-        <button onClick={fetchData}>Obter Dados</button>
-      </div>
-      {data && (
-        <DataTable data={data} onSelectDate={setSelectedDate} />
-      )}
-      {selectedDate && data[selectedDate] && (
-        <DetailTable records={data[selectedDate].records} />
+      {data && <DataTable data={data} onSelectDate={setSelectedDate} />}
+      {selectedDate && data.find(d => d.date === selectedDate) && (
+        <DetailTable records={data.find(d => d.date === selectedDate).records} />
       )}
     </div>
   );
@@ -50,20 +35,26 @@ function DataTable({ data, onSelectDate }) {
         <thead>
           <tr>
             <th>Data</th>
-            <th>Total Registros</th>
+            <th>Total</th>
             <th>OK</th>
             <th>Faltantes</th>
             <th>% Perda</th>
+            <th>Atraso Médio (min)</th>
+            <th>Atraso Máx (min)</th>
+            <th>Atraso Mín (min)</th>
           </tr>
         </thead>
         <tbody>
-          {Object.entries(data).map(([date, stats]) => (
-            <tr key={date} onClick={() => onSelectDate(date)} style={{ cursor: 'pointer' }}>
-              <td>{date}</td>
-              <td>{stats.total}</td>
-              <td>{stats.ok}</td>
-              <td>{stats.missing}</td>
-              <td>{stats.lossPercentage}%</td>
+          {data.map(day => (
+            <tr key={day.date} onClick={() => onSelectDate(day.date)} style={{ cursor: 'pointer' }}>
+              <td>{day.date}</td>
+              <td>{day.total}</td>
+              <td>{day.ok}</td>
+              <td>{day.missing}</td>
+              <td>{day.lossPercentage}%</td>
+              <td>{day.avgDelay}</td>
+              <td>{day.maxDelay}</td>
+              <td>{day.minDelay}</td>
             </tr>
           ))}
         </tbody>
@@ -89,8 +80,8 @@ function DetailTable({ records }) {
           {records.map((record, index) => (
             <tr key={index}>
               <td>{record.type || 'N/A'}</td>
-              <td>{record.time}</td>
-              <td>{record.dhRegistro ? new Date(record.dhRegistro).toLocaleString() : 'N/A'}</td>
+              <td>{record.data_time ? new Date(record.data_time).toLocaleString() : 'N/A'}</td>
+              <td>{record.arrival_time ? new Date(record.arrival_time).toLocaleString() : 'N/A'}</td>
               <td>{record.status}</td>
             </tr>
           ))}
