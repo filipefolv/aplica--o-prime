@@ -1,8 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 
-const supabaseUrl = 'https://seu-projeto.supabase.co';
-const supabaseKey = 'sua-chave-de-api';
+const supabaseUrl = 'https://eaoqiiobjlqhqcryqzwj.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhb3FpaW9iamxxaHFjcnlxendqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMxODY0OTYsImV4cCI6MjA1ODc2MjQ5Nn0.saH1Ghv9m8gaQy5IV5uJ0tI9dsmMSpqE0JegIxzZvHA';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = async (req, res) => {
