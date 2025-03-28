@@ -6,59 +6,73 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = async (req, res) => {
-  const startDate = '2023-01-01'; // Início deste ano
-  const endDate = new Date().toISOString().split('T')[0]; // Hoje
-
-  try {
-    // Login na API OceanTrack
-    const loginResponse = await axios.post('https://ws.oceantrack.com.br/User/login', {
-      login: 'intmessenocean',
-      password: 'BvnaxLhr99!#!'
-    });
-    const token = loginResponse.data.token;
-
-    // Buscar dados da API OceanTrack
-    const payload = {
-      mobile: ['01916481SKYA982'],
-      start_date: startDate,
-      end_date: endDate
-    };
-    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-    const response = await axios.post('https://ws.oceantrack.com.br/IntegrationServer/Tipo34', payload, { headers });
-
-    // Processar os dados
-    const processedData = processData(response.data);
-
-    // Armazenar no Supabase
-    for (const date in processedData) {
-      const stats = processedData[date];
-      await supabase.from('daily_stats').upsert({
-        date,
-        total_records: stats.total,
-        ok_records: stats.ok,
-        missing_records: stats.missing,
-        loss_percentage: stats.lossPercentage,
-        avg_delay: stats.avgDelay,
-        max_delay: stats.maxDelay,
-        min_delay: stats.minDelay,
-        last_updated: new Date().toISOString()
-      });
-
-      for (const record of stats.records) {
-        await supabase.from('records').insert({
-          date,
-          type: record.type,
-          data_time: record.dataTime,
-          arrival_time: record.arrivalTime,
-          status: record.status
+    const startDate = new Date('2023-01-01');
+    const endDate = new Date('2023-01-31');
+    const intervalDays = 2; // Blocos de 2 dias
+  
+    try {
+      // Login na API OceanTrack
+        const loginResponse = await axios.post('https://ws.oceantrack.com.br/User/login', {
+            login: 'intmessenocean',
+            password: 'BvnaxLhr99!#!'
         });
-      }
+        const token = loginResponse.data.token;
+  
+        let currentStart = startDate;
+        while (currentStart < endDate) {
+            const currentEnd = new Date(currentStart);
+            currentEnd.setDate(currentEnd.getDate() + intervalDays - 1);
+            if (currentEnd > endDate) currentEnd.setDate(endDate.getDate());
+    
+            const startStr = currentStart.toISOString().split('T')[0] + 'T00:00:00.000';
+            const endStr = currentEnd.toISOString().split('T')[0] + 'T23:59:59.999';
+    
+            // Buscar dados da API OceanTrack para o intervalo
+            const payload = {
+                mobile: ['01916481SKYA982'],
+                start_date: startStr,
+                end_date: endStr
+            };
+            const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+            const response = await axios.post('https://ws.oceantrack.com.br/IntegrationServer/Tipo34', payload, { headers });
+    
+            // Processar os dados (assumindo que processData já existe)
+            const processedData = processData(response.data);
+    
+            // Armazenar no Supabase
+            for (const date in processedData) {
+                const stats = processedData[date];
+                await supabase.from('daily_stats').upsert({
+                    date,
+                    total_records: stats.total,
+                    ok_records: stats.ok,
+                    missing_records: stats.missing,
+                    loss_percentage: stats.lossPercentage,
+                    avg_delay: stats.avgDelay,
+                    max_delay: stats.maxDelay,
+                    min_delay: stats.minDelay,
+                    last_updated: new Date().toISOString()
+                });
+        
+                for (const record of stats.records) {
+                    await supabase.from('records').insert({
+                    date,
+                    type: record.type,
+                    data_time: record.dataTime,
+                    arrival_time: record.arrivalTime,
+                    status: record.status
+                    });
+                }
+            }
+    
+            // Avançar para o próximo bloco
+            currentStart.setDate(currentStart.getDate() + intervalDays);
+        }
+    
+        res.status(200).json({ message: 'Dados de janeiro armazenados com sucesso' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao processar os dados' });
     }
-
-    res.status(200).json({ message: 'Dados armazenados com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao processar os dados' });
-  }
 };
 
 // Funções auxiliares para processar os dados
